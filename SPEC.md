@@ -198,7 +198,8 @@ iOSの `alpha` は起動時を基準にした相対値なので、真北に合�
 
 ```
 tsuki-sagashi/
-├── index.html   アプリ本体（HTML/CSS/JSを1ファイルに同梱）
+├── index.html   アプリ本体（HTML/CSS/JSを1ファイルに同梱。<head> にOGP・Xカード用のメタタグ）
+├── og-image.png SNSでシェアしたときのカード画像（1200×675）
 ├── SPEC.md      本仕様書
 └── CLAUDE.md    Claude Code用の作業ルール
 ```

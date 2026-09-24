@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>月をさがす</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --night:#16204a; --night-2:#0f1736; --moon:#f4e7bf; --gold:#e6c46e;
+  --susuki:#a9a47e; --ink:#eef0f7; --muted:#aab2cc;
+  --panel:rgba(12,18,42,.66); --line:rgba(230,196,110,.38);
+  --mincho:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --gothic:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --night:#0c1333; --night-2:#070b22; --panel:rgba(7,11,30,.7); }
+}
+:root[data-theme="dark"]{ --night:#0c1333; --night-2:#070b22; --panel:rgba(7,11,30,.7); }
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0}
+body{background:var(--night-2);color:var(--ink);font-family:var(--gothic);overflow:hidden;-webkit-user-select:none;user-select:none}
+
+#cam,#ov{position:fixed;inset:0;width:100%;height:100%}
+#cam{object-fit:cover;background:var(--night-2)}
+#ov{pointer-events:none}
+
+/* HUD */
+.hud-top{position:fixed;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 10px;
+  display:flex;justify-content:space-between;align-items:baseline;
+  background:linear-gradient(to bottom,rgba(7,11,30,.55),transparent)}
+.brand{font-family:var(--mincho);font-weight:700;font-size:1.15rem;letter-spacing:.12em;color:var(--moon)}
+.brand small{font-family:var(--gothic);font-weight:400;font-size:.72rem;letter-spacing:.04em;color:var(--muted);margin-left:.6em}
+#warn{position:fixed;left:18px;right:18px;top:calc(env(safe-area-inset-top,0px) + 54px);
+  font-size:.8rem;line-height:1.5;color:var(--moon);background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;padding:8px 12px;display:none;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+
+.panel{position:fixed;left:12px;right:12px;bottom:0;margin-bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px 18px 12px;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);max-width:520px;margin-inline:auto}
+#guide{font-family:var(--mincho);font-weight:700;font-size:1.55rem;letter-spacing:.06em;color:var(--moon);min-height:2rem}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px}
+.stat span{display:block;font-size:.68rem;color:var(--muted)}
+.stat b{font-weight:500;font-size:1rem;font-variant-numeric:tabular-nums}
+#times{margin-top:8px;font-size:.8rem;color:var(--susuki)}
+#where{margin-top:2px;font-size:.7rem;color:var(--muted)}
+
+/* Start */
+#start{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;justify-content:center;align-items:center;
+  padding:calc(env(safe-area-inset-top,0px) + 24px) 28px calc(env(safe-area-inset-bottom,0px) + 28px);
+  background:radial-gradient(120% 70% at 50% 22%,var(--night) 0%,var(--night-2) 70%);text-align:center}
+.orb{width:min(46vw,210px);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 38% 36%,#fff8e2 0%,var(--moon) 45%,#d8c48f 100%);
+  box-shadow:0 0 60px 12px rgba(244,231,191,.22),0 0 160px 40px rgba(230,196,110,.08)}
+h1{font-family:var(--mincho);font-weight:700;font-size:2.4rem;letter-spacing:.3em;margin:34px 0 0;padding-left:.3em;color:var(--moon)}
+.date{font-family:var(--mincho);font-size:1rem;color:var(--susuki);margin-top:6px;letter-spacing:.1em}
+.lead{font-size:.92rem;line-height:1.8;color:var(--ink);margin:22px 0 0;max-width:22em}
+button#go{margin-top:28px;font-family:var(--mincho);font-weight:700;font-size:1.1rem;letter-spacing:.2em;
+  color:var(--night-2);background:var(--gold);border:0;border-radius:999px;padding:14px 44px 14px calc(44px + .2em);cursor:pointer}
+button#go:focus-visible{outline:2px solid var(--moon);outline-offset:4px}
+.notes{margin-top:22px;font-size:.74rem;line-height:1.7;color:var(--muted);max-width:24em}
+@media (prefers-reduced-motion:no-preference){ .orb{animation:rise 1.6s ease-out both} @keyframes rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}} }
+</style>
+</head>
+<body>
+<video id="cam" playsinline muted autoplay></video>
+<canvas id="ov"></canvas>
+
+<div class="hud-top"><div class="brand">月をさがす<small id="clock"></small></div></div>
+<div id="warn"></div>
+
+<div class="panel" id="panel" hidden>
+  <div id="guide">準備中</div>
+  <div class="stats">
+    <div class="stat"><span>方位</span><b id="az">—</b></div>
+    <div class="stat"><span>高度</span><b id="alt">—</b></div>
+    <div class="stat"><span>輝いている面</span><b id="frac">—</b></div>
+  </div>
+  <div id="times"></div>
+  <div id="where"></div>
+</div>
+
+<div id="start">
+  <div class="orb" aria-hidden="true"></div>
+  <h1>中秋</h1>
+  <div class="date">二〇二六年 九月二十五日</div>
+  <p class="lead">iPhoneを縦に持ち、カメラを空へ。<br>月のある方向を矢印で示します。</p>
+  <button id="go">月をさがす</button>
+  <p class="notes">カメラ・位置情報・モーションの利用許可を求めます。動かない場合は、このページをSafariで直接開いてください。</p>
+</div>
+
+<script>
+(() => {
+const rad = Math.PI/180, deg = 180/Math.PI;
+const FOV_LONG = 67;           // iPhone広角カメラの長辺方向の画角（度）
+const $ = id => document.getElementById(id);
+const video = $('cam'), cv = $('ov'), ctx = cv.getContext('2d');
+
+/* ---------- 天文計算（簡略式・誤差は概ね0.5°以内） ---------- */
+const OBL = rad*23.4397;
+const toDays = ms => ms/86400000 - 0.5 + 2440588 - 2451545;
+const raOf  = (l,b) => Math.atan2(Math.sin(l)*Math.cos(OBL) - Math.tan(b)*Math.sin(OBL), Math.cos(l));
+const decOf = (l,b) => Math.asin(Math.sin(b)*Math.cos(OBL) + Math.cos(b)*Math.sin(OBL)*Math.sin(l));
+function moonCoords(d){
+  const L = rad*(218.316 + 13.176396*d), M = rad*(134.963 + 13.064993*d), F = rad*(93.272 + 13.229350*d);
+  const l = L + rad*6.289*Math.sin(M), b = rad*5.128*Math.sin(F);
+  return { ra: raOf(l,b), dec: decOf(l,b), dist: 385001 - 20905*Math.cos(M) };
+}
+function sunCoords(d){
+  const M = rad*(357.5291 + 0.98560028*d);
+  const C = rad*(1.9148*Math.sin(M) + 0.02*Math.sin(2*M) + 0.0003*Math.sin(3*M));
+  const L = M + C + rad*102.9372 + Math.PI;
+  return { ra: raOf(L,0), dec: decOf(L,0) };
+}
+function moonPos(date, lat, lng){
+  const d = toDays(date.getTime()), phi = lat*rad, c = moonCoords(d);
+  const H = rad*(280.16 + 360.9856235*d) + lng*rad - c.ra;
+  let h = Math.asin(Math.sin(phi)*Math.sin(c.dec) + Math.cos(phi)*Math.cos(c.dec)*Math.cos(H));
+  h -= Math.asin((6378.14/c.dist)*Math.cos(h));            // 視差
+  const hd = h*deg;
+  if (hd > -2) h += rad*(1.02/Math.tan(rad*(hd + 10.3/(hd + 5.11))))/60; // 大気差
+  const az = Math.atan2(Math.sin(H), Math.cos(H)*Math.sin(phi) - Math.tan(c.dec)*Math.cos(phi));
+  return { alt: h*deg, az: ((az*deg + 180) % 360 + 360) % 360 };
+}
+function moonFraction(date){
+  const d = toDays(date.getTime()), s = sunCoords(d), m = moonCoords(d), sd = 149598000;
+  const phi = Math.acos(Math.sin(s.dec)*Math.sin(m.dec) + Math.cos(s.dec)*Math.cos(m.dec)*Math.cos(s.ra - m.ra));
+  const inc = Math.atan2(sd*Math.sin(phi), m.dist - sd*Math.cos(phi));
+  return (1 + Math.cos(inc))/2;
+}
+function riseSet(now, lat, lng){
+  let prev = moonPos(now,lat,lng).alt, rise = null, set = null;
+  for (let m = 5; m <= 26*60 && !(rise && set); m += 5){
+    const a = moonPos(new Date(now.getTime() + m*60000), lat, lng).alt;
+    const t = new Date(now.getTime() + (m - 5 + 5*(-prev)/(a - prev))*60000);
+    if (prev < 0 && a >= 0 && !rise) rise = t;
+    if (prev >= 0 && a < 0 && !set) set = t;
+    prev = a;
+  }
+  return { rise, set };
+}
+const DIRS = ['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西'];
+const dirName = az => DIRS[Math.round(((az%360)+360)%360/22.5) % 16];
+function hm(t, now){
+  const s = t.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  return (t.toDateString() !== now.toDateString() ? '翌' : '') + s;
+}
+
+/* ---------- 状態 ---------- */
+let loc = null, moon = null;
+let ori = null, absolute = false, compassHeading = null, compassAcc = null;
+let offVec = null;   // iOS: 相対alpha→真北の補正（単位ベクトルで平滑化）
+let dSmooth = null;
+let W = 0, H = 0;
+
+function resize(){
+  const dpr = Math.min(devicePixelRatio || 1, 3);
+  W = innerWidth; H = innerHeight;
+  cv.width = W*dpr; cv.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+addEventListener('resize', resize); resize();
+
+function warn(msg){ const w = $('warn'); w.textContent = msg || ''; w.style.display = msg ? 'block' : 'none'; }
+
+function updateMoon(){
+  const now = new Date();
+  $('clock').textContent = now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  if (!loc) return;
+  moon = moonPos(now, loc.lat, loc.lng);
+  moon.frac = moonFraction(now);
+  const rs = riseSet(now, loc.lat, loc.lng);
+  $('az').textContent = `${Math.round(moon.az)}° ${dirName(moon.az)}`;
+  $('alt').textContent = `${moon.alt.toFixed(1)}°`;
+  $('frac').textContent = `${Math.round(moon.frac*100)}%`;
+  const parts = [];
+  if (rs.rise) parts.push(`月の出 ${hm(rs.rise, now)}`);
+  if (rs.set)  parts.push(`月の入り ${hm(rs.set, now)}`);
+  $('times').textContent = parts.join('　');
+  $('where').textContent = `${loc.approx ? '位置は東京で仮定' : '現在地'}（${loc.lat.toFixed(2)}, ${loc.lng.toFixed(2)}）`;
+}
+
+/* ---------- センサー ---------- */
+function onOri(ev){
+  if (ev.alpha == null) return;
+  ori = { a: ev.alpha, b: ev.beta, g: ev.gamma };
+  if (typeof ev.webkitCompassHeading === 'number'){ compassHeading = ev.webkitCompassHeading; compassAcc = ev.webkitCompassAccuracy; }
+}
+function onOriAbs(ev){ if (ev.alpha == null) return; absolute = true; ori = { a: ev.alpha, b: ev.beta, g: ev.gamma }; }
+
+function rotMatrix(a,b,g){  // W3C: R = Rz(α)·Rx(β)·Ry(γ)
+  const ca=Math.cos(a), sa=Math.sin(a), cb=Math.cos(b), sb=Math.sin(b), cg=Math.cos(g), sg=Math.sin(g);
+  return [
+    [ca*cg - sa*sb*sg, -sa*cb, ca*sg + sa*sb*cg],
+    [sa*cg + ca*sb*sg,  ca*cb, sa*sg - ca*sb*cg],
+    [-cb*sg,            sb,    cb*cg]
+  ];
+}
+function focal(){
+  const vw = video.videoWidth, vh = video.videoHeight, t = Math.tan(FOV_LONG/2*rad);
+  if (!vw) return Math.max(W,H)/(2*t);
+  const s = Math.max(W/vw, H/vh);
+  return Math.max(vw,vh)*s/(2*t);
+}
+const wrap180 = x => ((x + 540) % 360) - 180;
+
+/* ---------- 描画 ---------- */
+const GOLD = '#e6c46e', MOON = '#f4e7bf';
+function drawReticle(){
+  const cx = W/2, cy = H/2;
+  ctx.strokeStyle = 'rgba(244,231,191,.55)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx-34,cy); ctx.lineTo(cx-26,cy); ctx.moveTo(cx+26,cy); ctx.lineTo(cx+34,cy);
+  ctx.moveTo(cx,cy-34); ctx.lineTo(cx,cy-26); ctx.moveTo(cx,cy+26); ctx.lineTo(cx,cy+34);
+  ctx.stroke();
+}
+function drawMarker(x, y, captured){
+  ctx.save();
+  ctx.shadowColor = 'rgba(230,196,110,.8)'; ctx.shadowBlur = captured ? 24 : 12;
+  ctx.strokeStyle = captured ? MOON : GOLD; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, 30, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, 38, -0.5, 0.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, 38, Math.PI-0.5, Math.PI+0.5); ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = MOON; ctx.font = '700 15px "Shippori Mincho", serif'; ctx.textAlign = 'center';
+  ctx.fillText('月', x, y + 60);
+}
+function drawArrow(x, y, ang, label){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+  ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 8;
+  ctx.fillStyle = GOLD;
+  ctx.beginPath();
+  ctx.moveTo(26, 0); ctx.lineTo(-14, -20); ctx.lineTo(-4, 0); ctx.lineTo(-14, 20); ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = MOON; ctx.font = '500 14px "Zen Kaku Gothic New", sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(label, x - Math.cos(ang)*44, y - Math.sin(ang)*44 + 5);
+}
+
+function frame(){
+  requestAnimationFrame(frame);
+  ctx.clearRect(0, 0, W, H);
+  drawReticle();
+  if (!moon || !ori) return;
+
+  const R = rotMatrix(ori.a*rad, ori.b*rad, ori.g*rad);
+  const cam = [-R[0][2], -R[1][2], -R[2][2]];   // 背面カメラの向き（地上座標）
+  const top = [ R[0][1],  R[1][1],  R[2][1]];   // 端末上端の向き
+
+  // 方位の補正（iOSはalphaが相対値なのでコンパス値で合わせる）
+  if (!absolute && compassHeading != null){
+    const ref = Math.hypot(cam[0], cam[1]) > 0.7 ? cam : top;
+    const s = (compassHeading - Math.atan2(ref[0], ref[1])*deg)*rad;
+    const v = [Math.cos(s), Math.sin(s)];
+    offVec = offVec ? [offVec[0]*0.9 + v[0]*0.1, offVec[1]*0.9 + v[1]*0.1] : v;
+  }
+  const off = absolute ? 0 : (offVec ? Math.atan2(offVec[1], offVec[0]) : 0);
+
+  // 月の方向ベクトル → 端末座標
+  const azR = moon.az*rad - off, al = moon.alt*rad;
+  const m = [Math.cos(al)*Math.sin(azR), Math.cos(al)*Math.cos(azR), Math.sin(al)];
+  const d = [0,1,2].map(i => R[0][i]*m[0] + R[1][i]*m[1] + R[2][i]*m[2]);
+  dSmooth = dSmooth ? dSmooth.map((v,i) => v*0.75 + d[i]*0.25) : d;
+  const n = Math.hypot(...dSmooth), [dx, dy, dz] = dSmooth.map(v => v/n);
+
+  // 画面の回転を考慮
+  const th = ((screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0)*rad;
+  const sx =  dx*Math.cos(th) - dy*Math.sin(th);
+  const sy =  dx*Math.sin(th) + dy*Math.cos(th);
+
+  // 案内文
+  const camAz = (Math.atan2(cam[0], cam[1]) + off)*deg;
+  const camAlt = Math.asin(Math.max(-1, Math.min(1, cam[2])))*deg;
+  const sep = Math.acos(Math.max(-1, Math.min(1, -dz)))*deg;
+  const dAz = wrap180(moon.az - camAz), dAlt = moon.alt - camAlt;
+  let g;
+  if (sep < 3) g = '月は正面です';
+  else {
+    const h = Math.abs(dAz) >= 2 ? `${dAz > 0 ? '右' : '左'}へ ${Math.round(Math.abs(dAz))}°` : '';
+    const v = Math.abs(dAlt) >= 2 ? `${dAlt > 0 ? '上' : '下'}へ ${Math.round(Math.abs(dAlt))}°` : '';
+    g = [h, v].filter(Boolean).join('　') || '月は正面です';
+  }
+  if (moon.alt < 0) g = '月は地平線の下です';
+  $('guide').textContent = g;
+
+  const cx = W/2, cy = H/2, f = focal();
+  const panelTop = $('panel').getBoundingClientRect().top;
+  const box = { l: 44, r: W - 44, t: 110, b: Math.min(H - 60, panelTop - 36) };
+
+  if (dz < 0){
+    const px = cx + f*sx/(-dz), py = cy - f*sy/(-dz);
+    if (px > box.l && px < box.r && py > box.t && py < box.b){
+      drawMarker(px, py, sep < 3);
+      return;
+    }
+  }
+  // 画面外 → 端に矢印
+  let vx = sx, vy = -sy;
+  if (Math.hypot(vx, vy) < 0.05){ vx = 0; vy = 1; }
+  const ang = Math.atan2(vy, vx);
+  const ts = [];
+  if (vx > 0) ts.push((box.r - cx)/vx); if (vx < 0) ts.push((box.l - cx)/vx);
+  if (vy > 0) ts.push((box.b - cy)/vy); if (vy < 0) ts.push((box.t - cy)/vy);
+  const t = Math.min(...ts);
+  drawArrow(cx + vx*t, cy + vy*t, ang, `${Math.round(sep)}°`);
+}
+
+/* ---------- 起動 ---------- */
+async function start(){
+  const msgs = [];
+  // 1) モーション（iOSはユーザー操作の直後に要求する必要がある）
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function'){
+    try { if (await DeviceOrientationEvent.requestPermission() !== 'granted') msgs.push('モーションの利用が許可されていません。'); }
+    catch(e){ msgs.push('モーションの利用許可を取得できませんでした。'); }
+  }
+  if ('ondeviceorientationabsolute' in window) addEventListener('deviceorientationabsolute', onOriAbs);
+  addEventListener('deviceorientation', e => { if (!absolute) onOri(e); });
+
+  $('start').style.display = 'none';
+  $('panel').hidden = false;
+
+  // 2) 位置情報
+  const geo = new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p => res({ lat: p.coords.latitude, lng: p.coords.longitude }),
+      () => res(null), { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
+  });
+
+  // 3) カメラ
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+    video.srcObject = stream; await video.play().catch(()=>{});
+  } catch(e){ msgs.push('カメラを使えません。矢印と数値で案内します。'); }
+
+  const g = await geo;
+  if (g) loc = g; else { loc = { lat: 35.68, lng: 139.77, approx: true }; msgs.push('現在地を取得できないため、東京の位置で計算しています。'); }
+  updateMoon(); setInterval(updateMoon, 15000);
+
+  warn(msgs.join(' '));
+  setTimeout(() => {
+    if (!ori) warn([...msgs, '向きセンサーが反応しません。スマートフォンで開いてください。'].join(' '));
+    else if (!absolute && compassHeading == null) warn('方位を取得できません。表示される方向がずれる可能性があります。');
+  }, 2500);
+  setInterval(() => {
+    if (compassAcc != null && (compassAcc < 0 || compassAcc > 25) && !msgs.length)
+      warn('コンパスの精度が低下しています。iPhoneを空中で8の字に動かすと改善します。');
+    else if (!msgs.length) warn('');
+  }, 3000);
+}
+$('go').addEventListener('click', start);
+updateMoon();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

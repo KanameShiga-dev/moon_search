@@ -48,7 +48,8 @@ body{background:var(--night-2);color:var(--ink);font-family:var(--gothic);overfl
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px}
 .stat span{display:block;font-size:.68rem;color:var(--muted)}
 .stat b{font-weight:500;font-size:1rem;font-variant-numeric:tabular-nums}
-#times{margin-top:8px;font-size:.8rem;color:var(--susuki)}
+#koyomi{margin-top:8px;font-family:var(--mincho);font-size:.86rem;color:var(--moon)}
+#times{margin-top:4px;font-size:.8rem;color:var(--susuki)}
 #where{margin-top:2px;font-size:.7rem;color:var(--muted)}
 
 /* Start */
@@ -60,6 +61,7 @@ body{background:var(--night-2);color:var(--ink);font-family:var(--gothic);overfl
   box-shadow:0 0 60px 12px rgba(244,231,191,.22),0 0 160px 40px rgba(230,196,110,.08)}
 h1{font-family:var(--mincho);font-weight:700;font-size:2.4rem;letter-spacing:.3em;margin:34px 0 0;padding-left:.3em;color:var(--moon)}
 .date{font-family:var(--mincho);font-size:1rem;color:var(--susuki);margin-top:6px;letter-spacing:.1em}
+.koyomi{font-family:var(--mincho);font-size:.9rem;color:var(--moon);margin-top:4px;letter-spacing:.06em;line-height:1.7}
 .lead{font-size:.92rem;line-height:1.8;color:var(--ink);margin:22px 0 0;max-width:22em}
 button#go{margin-top:28px;font-family:var(--mincho);font-weight:700;font-size:1.1rem;letter-spacing:.2em;
   color:var(--night-2);background:var(--gold);border:0;border-radius:999px;padding:14px 44px 14px calc(44px + .2em);cursor:pointer}
@@ -82,14 +84,16 @@ button#go:focus-visible{outline:2px solid var(--moon);outline-offset:4px}
     <div class="stat"><span>高度</span><b id="alt">—</b></div>
     <div class="stat"><span>輝いている面</span><b id="frac">—</b></div>
   </div>
+  <div id="koyomi"></div>
   <div id="times"></div>
   <div id="where"></div>
 </div>
 
 <div id="start">
   <div class="orb" aria-hidden="true"></div>
-  <h1>中秋</h1>
-  <div class="date">二〇二六年 九月二十五日</div>
+  <h1 id="title">月</h1>
+  <div class="date" id="date"></div>
+  <div class="koyomi" id="startKoyomi"></div>
   <p class="lead">iPhoneを縦に持ち、カメラを空へ。<br>月のある方向を矢印で示します。</p>
   <button id="go">月をさがす</button>
   <p class="notes">カメラ・位置情報・モーションの利用許可を求めます。動かない場合は、このページをSafariで直接開いてください。</p>
@@ -152,6 +156,89 @@ function hm(t, now){
   return (t.toDateString() !== now.toDateString() ? '翌' : '') + s;
 }
 
+/* ---------- 暦（旧暦の日付と月の呼び名） ---------- */
+// 朔弦望はMeeus『Astronomical Algorithms』49章（惑星による補正項は省略、誤差は数分以内）。
+// 太陽黄経は同25章の低精度式。日付の区切りは日本時間（JST）。
+const JST = 9*3600000, DT = 69/86400;                 // DT: 地球時と世界時の差（日）
+const jstDay = ms => Math.floor((ms + JST)/86400000); // JSTの日付の通し番号
+const jdOf = ms => ms/86400000 + 2440587.5;
+function phaseTime(k){  // k: 整数=朔、+0.25=上弦、+0.5=望、+0.75=下弦 → 時刻(ms)
+  const T = k/1236.85, s = x => Math.sin(rad*x), c = x => Math.cos(rad*x);
+  let jd = 2451550.09766 + 29.530588861*k + 0.00015437*T*T - 0.00000015*T**3 + 0.00000000073*T**4;
+  const E = 1 - 0.002516*T - 0.0000074*T*T;
+  const M  = 2.5534 + 29.1053567*k - 0.0000014*T*T - 0.00000011*T**3;
+  const Mp = 201.5643 + 385.81693528*k + 0.0107582*T*T + 0.00001238*T**3 - 0.000000058*T**4;
+  const F  = 160.7108 + 390.67050284*k - 0.0016118*T*T - 0.00000227*T**3 + 0.000000011*T**4;
+  const O  = 124.7746 - 1.56375588*k + 0.0020672*T*T + 0.00000215*T**3;
+  const q = k - Math.floor(k);
+  if (q === 0 || q === 0.5){
+    const n = q === 0;
+    jd += (n ? -0.40720 : -0.40614)*s(Mp) + (n ? 0.17241 : 0.17302)*E*s(M) + (n ? 0.01608 : 0.01614)*s(2*Mp)
+      + (n ? 0.01039 : 0.01043)*s(2*F) + (n ? 0.00739 : 0.00734)*E*s(Mp-M) - (n ? 0.00514 : 0.00515)*E*s(Mp+M)
+      + (n ? 0.00208 : 0.00209)*E*E*s(2*M) - 0.00111*s(Mp-2*F) - 0.00057*s(Mp+2*F) + 0.00056*E*s(2*Mp+M)
+      - 0.00042*s(3*Mp) + 0.00042*E*s(M+2*F) + 0.00038*E*s(M-2*F) - 0.00024*E*s(2*Mp-M) - 0.00017*s(O)
+      - 0.00007*s(Mp+2*M) + 0.00004*s(2*Mp-2*F) + 0.00004*s(3*M) + 0.00003*s(Mp+M-2*F) + 0.00003*s(2*Mp+2*F)
+      - 0.00003*s(Mp+M+2*F) + 0.00003*s(Mp-M+2*F) - 0.00002*s(Mp-M-2*F) - 0.00002*s(3*Mp+M) + 0.00002*s(4*Mp);
+  } else {
+    jd += -0.62801*s(Mp) + 0.17172*E*s(M) - 0.01183*E*s(Mp+M) + 0.00862*s(2*Mp) + 0.00804*s(2*F)
+      + 0.00454*E*s(Mp-M) + 0.00204*E*E*s(2*M) - 0.00180*s(Mp-2*F) - 0.00070*s(Mp+2*F) - 0.00040*s(3*Mp)
+      - 0.00034*E*s(2*Mp-M) + 0.00032*E*s(M+2*F) + 0.00032*E*s(M-2*F) - 0.00028*E*E*s(Mp+2*M)
+      + 0.00027*E*s(2*Mp+M) - 0.00017*s(O) - 0.00005*s(Mp-M-2*F) + 0.00004*s(2*Mp+2*F) - 0.00004*s(Mp+M+2*F)
+      + 0.00004*s(Mp-2*M) + 0.00003*s(Mp+M-2*F) + 0.00003*s(3*M) + 0.00002*s(2*Mp-2*F) + 0.00002*s(Mp-M+2*F)
+      - 0.00002*s(3*Mp+M);
+    const W = 0.00306 - 0.00038*E*c(M) + 0.00026*c(Mp) - 0.00002*c(Mp-M) + 0.00002*c(Mp+M) + 0.00002*c(2*F);
+    jd += q === 0.25 ? W : -W;
+  }
+  return (jd - DT - 2440587.5)*86400000;
+}
+function sunLongitude(ms){  // 視黄経（度）
+  const T = (jdOf(ms) + DT - 2451545)/36525;
+  const L0 = 280.46646 + 36000.76983*T + 0.0003032*T*T;
+  const M = rad*(357.52911 + 35999.05029*T - 0.0001537*T*T);
+  const C = (1.914602 - 0.004817*T - 0.000014*T*T)*Math.sin(M) + (0.019993 - 0.000101*T)*Math.sin(2*M) + 0.000289*Math.sin(3*M);
+  const lon = L0 + C - 0.00569 - 0.00478*Math.sin(rad*(125.04 - 1934.136*T));
+  return ((lon % 360) + 360) % 360;
+}
+// JST日付 a〜b-1 に含まれる中気から月番号を求める（中気がなければ0＝閏月）
+function monthOfSpan(a, b){
+  const la = sunLongitude(a*86400000 - JST), lb = sunLongitude(b*86400000 - JST);
+  const next = (Math.floor(la/30) + 1)*30;
+  if (next - la > ((lb - la) + 360) % 360) return 0;
+  return (((next/30) % 12) + 1) % 12 + 1;   // 春分(0°)→2月、秋分(180°)→8月
+}
+function lunarDate(ms){
+  const today = jstDay(ms);
+  let k = Math.floor((jdOf(ms) - 2451550.09766)/29.530588861);
+  while (jstDay(phaseTime(k)) > today) k--;
+  while (jstDay(phaseTime(k + 1)) <= today) k++;
+  const a = jstDay(phaseTime(k)), b = jstDay(phaseTime(k + 1));
+  let month = monthOfSpan(a, b), leap = false;
+  if (!month){ leap = true; month = monthOfSpan(jstDay(phaseTime(k - 1)), a); }
+  return { k, today, month, leap, day: today - a + 1 };
+}
+const FESTIVALS = { '8-14': ['待宵', '待宵（中秋の前夜）'], '8-15': ['中秋', '中秋の名月・十五夜'],
+                    '9-13': ['十三夜', '十三夜（後の月）'], '10-10': ['十日夜', '十日夜（とおかんや）'] };
+const DAY_NAMES = { 2: '二日月', 3: '三日月', 13: '十三夜月', 14: '小望月', 15: '十五夜', 16: '十六夜',
+                    17: '立待月', 18: '居待月', 19: '寝待月', 20: '更待月' };
+const PHASES = [[0, '新月'], [0.25, '上弦の月'], [0.5, '満月'], [0.75, '下弦の月']];
+function moonNames(ms){
+  const L = lunarDate(ms);
+  const fest = L.leap ? null : FESTIVALS[`${L.month}-${L.day}`];
+  const phase = (PHASES.find(([q]) => jstDay(phaseTime(L.k + q)) === L.today) || [])[1];
+  const parts = [fest ? fest[1] : DAY_NAMES[L.day], phase].filter((v, i, a) => v && a.indexOf(v) === i);
+  let upcoming = null;
+  for (let i = 1; i <= 7 && !upcoming; i++){
+    const u = lunarDate(ms + i*86400000), f = !u.leap && FESTIVALS[`${u.month}-${u.day}`];
+    if (f && f !== fest && f[0] !== '待宵') upcoming = { name: f[1].split(/[・（]/)[0], days: i };
+  }
+  return { ...L, title: fest ? fest[0] : (phase || DAY_NAMES[L.day] || '月'), names: parts.join('・'), upcoming };
+}
+const KNUM = ['〇','一','二','三','四','五','六','七','八','九'];
+const kanjiNum = n => n < 10 ? KNUM[n] : (n >= 20 ? KNUM[Math.floor(n/10)] : '') + '十' + (n % 10 ? KNUM[n % 10] : '');
+const kanjiYear = y => String(y).split('').map(Number).map(d => KNUM[d]).join('');
+const lunarLabel = (L, kanji) => `旧暦${kanji ? ' ' : ''}${L.leap ? '閏' : ''}${kanji ? kanjiNum(L.month) : L.month}月${kanji ? kanjiNum(L.day) : L.day}日`;
+const upcomingLabel = u => u ? (u.days === 1 ? `明日は${u.name}` : `${u.name}まであと${u.days}日`) : '';
+
 /* ---------- 状態 ---------- */
 let loc = null, moon = null;
 let ori = null, absolute = false, compassHeading = null, compassAcc = null;
@@ -169,9 +256,24 @@ addEventListener('resize', resize); resize();
 
 function warn(msg){ const w = $('warn'); w.textContent = msg || ''; w.style.display = msg ? 'block' : 'none'; }
 
+let koyomiDay = null;
+function updateKoyomi(now){
+  const n = moonNames(now.getTime());
+  if (n.today === koyomiDay) return;
+  koyomiDay = n.today;
+  const j = new Date(now.getTime() + JST);   // JSTの年月日をUTCとして読む
+  $('title').textContent = n.title;
+  $('date').textContent = `${kanjiYear(j.getUTCFullYear())}年 ${kanjiNum(j.getUTCMonth() + 1)}月${kanjiNum(j.getUTCDate())}日`;
+  const sub = [n.names, upcomingLabel(n.upcoming)].filter(Boolean);
+  $('startKoyomi').innerHTML = '';
+  [lunarLabel(n, true), ...sub].forEach(t => { const d = document.createElement('div'); d.textContent = t; $('startKoyomi').append(d); });
+  $('koyomi').textContent = [lunarLabel(n, false), ...sub.map(t => t.replace(/（[^）]*）/g, ''))].join('　');
+}
+
 function updateMoon(){
   const now = new Date();
   $('clock').textContent = now.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  updateKoyomi(now);
   if (!loc) return;
   moon = moonPos(now, loc.lat, loc.lng);
   moon.frac = moonFraction(now);
